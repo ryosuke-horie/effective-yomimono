@@ -2,7 +2,7 @@ import type {
 	ExecutionContext,
 	ScheduledController,
 } from "@cloudflare/workers-types";
-import { desc, sql } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -136,60 +136,6 @@ export const createApp = (env: Env) => {
 				{
 					success: false,
 					error: error instanceof Error ? error.message : String(error),
-				},
-				500,
-			);
-		}
-	});
-
-	// 一時的なメンテナンスエンドポイント：ダミーサマリークリア
-	app.post("/api/dev/clear-dummy-summaries", async (c) => {
-		try {
-			const drizzleDb = drizzle(c.env.DB);
-			
-			// 1. 現在の summary が存在するレコード数を確認
-			const [countBefore] = await drizzleDb
-				.select({ count: sql<number>`count(*)` })
-				.from(bookmarks)
-				.where(sql`${bookmarks.summary} IS NOT NULL`);
-
-			console.log(`Records with summary before: ${countBefore.count}`);
-
-			// 2. summary, summaryCreatedAt, summaryUpdatedAt を NULL に更新
-			const result = await drizzleDb
-				.update(bookmarks)
-				.set({
-					summary: null,
-					summaryCreatedAt: null,
-					summaryUpdatedAt: null,
-				})
-				.where(sql`${bookmarks.summary} IS NOT NULL`);
-
-			console.log("Update completed.");
-
-			// 3. 更新後の確認
-			const [countAfter] = await drizzleDb
-				.select({ count: sql<number>`count(*)` })
-				.from(bookmarks)
-				.where(sql`${bookmarks.summary} IS NOT NULL`);
-
-			console.log(`Records with summary after: ${countAfter.count}`);
-
-			return c.json({
-				success: true,
-				message: "Dummy summaries cleared successfully",
-				result: {
-					before: countBefore.count,
-					after: countAfter.count,
-					cleared: countBefore.count - countAfter.count,
-				},
-			});
-		} catch (error) {
-			console.error("Error clearing summaries:", error);
-			return c.json(
-				{
-					success: false,
-					error: error instanceof Error ? error.message : "Unknown error",
 				},
 				500,
 			);
